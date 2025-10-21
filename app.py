@@ -7,7 +7,7 @@ app = Flask(__name__)
 def index():
     return render_template('index.html')
 
-@app.route('/reccomedations')
+@app.route('/recommend', methods=['POST'])
 def recomment():
     student_topic = request.form['topic']
     recommendations = get_recommendations_from_topic(student_topic)
