@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Результаты рекомендаций</title>
+    <style>
+        table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Рекомендации для темы: "{{ topic }}"</h1>
+    {% if recommendations %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Научный руководитель</th>
+                    <th>Степень схожести</th>
+                    <!-- Добавьте другие заголовки, если ваш JSON их содержит -->
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in recommendations %}
+                    <tr>
+                        <td>{{ rec.supervisor_name }}</td>
+                        <td>{{ rec.similarity_score }}</td>
+                        <!-- Добавьте другие ячейки в соответствии с ключами в вашем JSON -->
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Рекомендации не найдены.</p>
+    {% endif %}
+    <br>
+    <a href="/">Вернуться на главную</a>
+</body>
+</html>```
