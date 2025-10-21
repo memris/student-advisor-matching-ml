@@ -9,18 +9,23 @@ import re
 import sys
 import json
 
-morph_analyzer = None 
-try:
-    import pymorphy2
-    morph_analyzer = pymorphy2.MorphAnalyzer()
-    print("ML Script: pymorphy2 успешно импортирован и инициализирован.", file=sys.stderr)
-except Exception as e: 
-    print(f"ML Script Warning: Не удалось инициализировать pymorphy2 (ошибка: {e}). Лемматизация не будет выполнена.", file=sys.stderr)
-    morph_analyzer = None
+from natasha import (
+    Segmenter,
+    MorphVocab,
+    NewsEmbedding,
+    NewsMorphTagger,
+    Doc
+)
 
+segmenter = Segmenter()
+morph_vocab = MorphVocab()
+emb = NewsEmbedding()
+morph_tagger = NewsMorphTagger(emb)
+
+print("ML Script: Natasha успешно импортирована и инициализирована.", file=sys.stderr)
 from prepare_supervisors_data import load_and_prepare_supervisor_data 
 
-def preprocess_text(text, lemmatizer=morph_analyzer):
+def preprocess_text(text):
     if not isinstance(text, str):
         return ""
     
@@ -53,25 +58,17 @@ def preprocess_text(text, lemmatizer=morph_analyzer):
         "студента", "руководителя", "научного", "тема", "дипломной", "квалификационной", "выпускной"
     }
 
-    words = text_cleaned.split()
     processed_words = []
-    
-    if lemmatizer:
-        try:
-            for word_token in words:
-                if not word_token: continue
-                parsed_word = lemmatizer.parse(word_token)[0]
-                normal_form = parsed_word.normal_form
-                if normal_form not in stop_words and len(normal_form) > 2: # > 2 для общего случая
-                     processed_words.append(normal_form)
-        except Exception as e_lemma:
-            print(f"ML Script Warning (preprocess_text): Ошибка при лемматизации: {e_lemma}. Используется обработка без лемматизации.", file=sys.stderr)
-            processed_words = [word for word in words if word not in stop_words and len(word) > 2]
-    else: 
-        processed_words = [word for word in words if word not in stop_words and len(word) > 2]
-            
-    return " ".join(processed_words).strip()
+    doc = Doc(text_cleaned)
+    doc.segment(segmenter)
+    doc.tag_morph(morph_tagger)
 
+    for token in doc.tokens:
+        token.lemmatize(morph_vocab)
+        if token.lemma not in stop_words and len(token.lemma) > 2:
+            processed_words.append(token.lemma)
+
+    return " ".join(processed_words).strip()
 
 if __name__ == '__main__':
     print("Python script started", file=sys.stderr)
@@ -123,16 +120,14 @@ if __name__ == '__main__':
     if not theme_col_student: 
         print(json.dumps({"error":"Колонка темы студента не найдена в обучающей выборке"}), file=sys.stderr); print(json.dumps([])); sys.exit(1)
 
-    df_students_history['processed_topic_student'] = df_students_history[theme_col_student].apply(
-        lambda x: preprocess_text(x, lemmatizer=morph_analyzer)
-    )
+    df_students_history['processed_topic_student'] = df_students_history[theme_col_student].apply(preprocess_text)
 
     supervisor_tags_col_for_tfidf = 'Теги_строкой'
     if supervisor_tags_col_for_tfidf not in df_supervisors_loaded.columns or df_supervisors_loaded[supervisor_tags_col_for_tfidf].isnull().all():
         print(f"ML Script Warning: Колонка '{supervisor_tags_col_for_tfidf}' не найдена или пуста в данных руководителей. Попытка создать из 'Теги'.", file=sys.stderr)
         if 'Теги' in df_supervisors_loaded.columns:
             df_supervisors_loaded[supervisor_tags_col_for_tfidf] = df_supervisors_loaded['Теги'].apply(
-                lambda tags_list: preprocess_text(" ".join(tags_list if isinstance(tags_list, list) else []), lemmatizer=morph_analyzer)
+                lambda tags_list: preprocess_text(" ".join(tags_list if isinstance(tags_list, list) else []))
             )
         else:
             print(json.dumps({"error": "Невозможно создать 'Теги_строкой', так как колонка 'Теги' отсутствует."}), file=sys.stderr); print(json.dumps([])); sys.exit(1)
@@ -264,7 +259,7 @@ if __name__ == '__main__':
             print("ML Script Warning: Модель не обучена, рекомендации невозможны.", file=sys.stderr)
             return []
             
-        processed_student_topic = preprocess_text(student_topic_text_arg, lemmatizer=morph_analyzer)
+        processed_student_topic = preprocess_text(student_topic_text_arg)
         if not processed_student_topic: 
             print("ML Script Warning: Тема студента пуста после предобработки.", file=sys.stderr)
             return []
@@ -314,11 +309,41 @@ if __name__ == '__main__':
     else:
         print("ML Script: Модель не была обучена, рекомендации не будут сформированы.", file=sys.stderr)
 
-    try:
-        print(json.dumps(output_recommendations, ensure_ascii=False, indent=None))
-    except Exception as e_json_dump:
-        print(json.dumps({"error": f"Ошибка при формировании JSON для вывода: {e_json_dump}"}), file=sys.stderr)
-        print(json.dumps([]))
-        sys.exit(1)
+import sys
+import json
+# ... (остальные ваши импорты)
 
-    print("ML Script: Работа завершена (JSON выведен в stdout).", file=sys.stderr)
+def get_recommendations_from_topic(student_topic_from_arg):
+    # ... (весь ваш код для загрузки модели, векторизатора и т.д.)
+    # df_supervisors_loaded, tfidf_vectorizer, model, supervisor_vectors_map
+
+    output_recommendations = []
+    if model:
+        print(f"\nML Script: Формирование рекомендаций для темы: '{student_topic_from_arg}'", file=sys.stderr)
+        output_recommendations = get_recommendations(
+            student_topic_from_arg,
+            df_supervisors_loaded,
+            tfidf_vectorizer,
+            model,
+            supervisor_vectors_map
+        )
+        print(f"ML Script: Сформировано {len(output_recommendations)} рекомендаций.", file=sys.stderr)
+    else:
+        print("ML Script: Модель не была обучена, рекомендации не будут сформированы.", file=sys.stderr)
+
+    return output_recommendations
+
+if __name__ == '__main__':
+    # Этот блок будет выполняться только при запуске скрипта напрямую
+    if len(sys.argv) > 1:
+        student_topic_from_arg = sys.argv[1]
+        recommendations = get_recommendations_from_topic(student_topic_from_arg)
+        try:
+            print(json.dumps(recommendations, ensure_ascii=False, indent=None))
+        except Exception as e_json_dump:
+            print(json.dumps({"error": f"Ошибка при формировании JSON для вывода: {e_json_dump}"}), file=sys.stderr)
+            print(json.dumps([]))
+            sys.exit(1)
+        print("ML Script: Работа завершена (JSON выведен в stdout).", file=sys.stderr)
+    else:
+        print("ML Script: Тема не была передана в качестве аргумента.", file=sys.stderr)
