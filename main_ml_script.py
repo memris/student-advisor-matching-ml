@@ -309,14 +309,7 @@ if __name__ == '__main__':
     else:
         print("ML Script: Модель не была обучена, рекомендации не будут сформированы.", file=sys.stderr)
 
-import sys
-import json
-# ... (остальные ваши импорты)
-
 def get_recommendations_from_topic(student_topic_from_arg):
-    # ... (весь ваш код для загрузки модели, векторизатора и т.д.)
-    # df_supervisors_loaded, tfidf_vectorizer, model, supervisor_vectors_map
-
     output_recommendations = []
     if model:
         print(f"\nML Script: Формирование рекомендаций для темы: '{student_topic_from_arg}'", file=sys.stderr)
@@ -334,7 +327,6 @@ def get_recommendations_from_topic(student_topic_from_arg):
     return output_recommendations
 
 if __name__ == '__main__':
-    # Этот блок будет выполняться только при запуске скрипта напрямую
     if len(sys.argv) > 1:
         student_topic_from_arg = sys.argv[1]
         recommendations = get_recommendations_from_topic(student_topic_from_arg)
